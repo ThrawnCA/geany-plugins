@@ -31,14 +31,14 @@ RequestExecutionLevel highest ; set execution level for Windows Vista
 ; helper defines  ;
 ;;;;;;;;;;;;;;;;;;;
 !define PRODUCT_NAME "Geany-Plugins"
-!define PRODUCT_VERSION "1.23"
-!define PRODUCT_VERSION_ID "1.23.0.0"
+!define PRODUCT_VERSION "1.25"
+!define PRODUCT_VERSION_ID "1.25.0.0"
 !define PRODUCT_PUBLISHER "The Geany developer team"
 !define PRODUCT_WEB_SITE "http://www.geany.org/"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_DIR_REGKEY "Software\Geany-Plugins"
 !define GEANY_DIR_REGKEY "Software\Geany"
-!define REQUIRED_GEANY_VERSION "1.23"
+!define REQUIRED_GEANY_VERSION "1.24"
 !define RESOURCEDIR "geany-plugins-${PRODUCT_VERSION}"
 
 ;;;;;;;;;;;;;;;;;;;;;
@@ -70,7 +70,7 @@ Var UNINSTDIR
 
 !define MUI_ABORTWARNING
 ; FIXME hard-coded path...should we add geany.ico to the geany-plugins repo?
-!define MUI_ICON "\geany_svn\icons\geany.ico"
+!define MUI_ICON "..\geany\icons\geany.ico"
 !define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall-full.ico"
 
 ; Welcome page
@@ -104,6 +104,9 @@ Section "!Program Files" SEC01
 
 	SetOutPath "$INSTDIR\lib"
 	File /r "${RESOURCEDIR}\lib\*"
+
+	SetOutPath "$INSTDIR\share\icons"
+	File /r "${RESOURCEDIR}\share\icons\*"
 
 	SetOutPath "$INSTDIR\share\geany-plugins"
 	File /r "${RESOURCEDIR}\share\geany-plugins\*"
@@ -149,9 +152,13 @@ Section Uninstall
 	Delete "$INSTDIR\ReadMe.Windows.txt"
 	Delete "$INSTDIR\uninst-plugins.exe"
 	Delete "$INSTDIR\lib\addons.dll"
+	Delete "$INSTDIR\lib\autoclose.dll"
+	Delete "$INSTDIR\lib\automark.dll"
 	Delete "$INSTDIR\lib\codenav.dll"
 	Delete "$INSTDIR\lib\commander.dll"
+	Delete "$INSTDIR\lib\defineformat.dll"
 	Delete "$INSTDIR\lib\geanydoc.dll"
+	Delete "$INSTDIR\lib\geanyctags.dll"
 	Delete "$INSTDIR\lib\geanyextrasel.dll"
 	Delete "$INSTDIR\lib\geanygendoc.dll"
 	Delete "$INSTDIR\lib\geanyinsertnum.dll"
@@ -165,8 +172,10 @@ Section Uninstall
 	Delete "$INSTDIR\lib\geanysendmail.dll"
 	Delete "$INSTDIR\lib\geanyvc.dll"
 	Delete "$INSTDIR\lib\geniuspaste.dll"
-	Delete "$INSTDIR\lib\gproject.dll"
+	Delete "$INSTDIR\lib\pairtaghighlighter.dll"
+	Delete "$INSTDIR\lib\pohelper.dll"
 	Delete "$INSTDIR\lib\pretty-printer.dll"
+	Delete "$INSTDIR\lib\projectorganizer.dll"
 	Delete "$INSTDIR\lib\scope.dll"
 	Delete "$INSTDIR\lib\shiftcolumn.dll"
 	Delete "$INSTDIR\lib\spellcheck.dll"
@@ -175,12 +184,13 @@ Section Uninstall
 	Delete "$INSTDIR\lib\updatechecker.dll"
 	Delete "$INSTDIR\lib\xmlsnippets.dll"
 
-
 	Delete "$INSTDIR\bin\ctpl-2.dll"
 	Delete "$INSTDIR\bin\libenchant.dll"
 	Delete "$INSTDIR\bin\libsoup-2.4-1.dll"
 	Delete "$INSTDIR\bin\libxml2-2.dll"
 	Delete "$INSTDIR\bin\lua5.1.dll"
+
+	Delete "$INSTDIR\share\icons\hicolor\16x16\apps\prjorg-*.png"
 
 	RMDir /r "$INSTDIR\doc\plugins"
 	RMDir /r "$INSTDIR\lib\geany-plugins"
@@ -202,6 +212,7 @@ Section Uninstall
 	; only if empty
 	RMDir "$INSTDIR\doc"
 	RMDir "$INSTDIR\lib"
+	RMDir "$INSTDIR\share\icons"
 	RMDir "$INSTDIR\share\locale"
 	RMDir "$INSTDIR\share"
 	RMDir "$INSTDIR"
@@ -261,7 +272,9 @@ Function CheckForGeany
 	IntOp $R2 $R0 >> 16
 	IntOp $R2 $R2 & 0x0000FFFF ; $R2 now contains major version
 	IntOp $R3 $R0 & 0x0000FFFF ; $R3 now contains minor version
-	StrCpy $0 "$R2.$R3"
+	IntOp $R4 $R1 >> 16
+	IntOp $R4 $R4 & 0x0000FFFF ; $R4 now contains release
+	StrCpy $0 "$R2.$R3.$R4"
 	StrCmp $0 ${REQUIRED_GEANY_VERSION} version_check_done 0
 	MessageBox MB_YESNO|MB_ICONEXCLAMATION \
 		"You have Geany $0 installed but you need Geany ${REQUIRED_GEANY_VERSION}.$\nDo you really want to continue?" \

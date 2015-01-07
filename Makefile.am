@@ -1,4 +1,5 @@
 ACLOCAL_AMFLAGS = -I build/cache -I build -I build/bundled -I geanypy/m4 --install
+AM_DISTCHECK_CONFIGURE_FLAGS = --with-geany-libdir='$${libdir}'
 
 SUBDIRS = po
 
@@ -8,6 +9,10 @@ endif
 
 if ENABLE_AUTOCLOSE
 SUBDIRS += autoclose
+endif
+
+if ENABLE_AUTOMARK
+SUBDIRS += automark
 endif
 
 if ENABLE_CODENAV
@@ -22,8 +27,16 @@ if ENABLE_DEBUGGER
 SUBDIRS += debugger
 endif
 
+if ENABLE_DEFINEFORMAT
+SUBDIRS += defineformat
+endif
+
 if ENABLE_DEVHELP
 SUBDIRS += devhelp
+endif
+
+if ENABLE_GEANYCTAGS
+SUBDIRS += geanyctags
 endif
 
 if ENABLE_GEANYDOC
@@ -90,10 +103,6 @@ if ENABLE_GENIUSPASTE
 SUBDIRS += geniuspaste
 endif
 
-if ENABLE_GPROJECT
-SUBDIRS += gproject
-endif
-
 if ENABLE_MARKDOWN
 SUBDIRS += markdown
 endif
@@ -112,6 +121,10 @@ endif
 
 if ENABLE_PRETTY_PRINTER
 SUBDIRS += pretty-printer
+endif
+
+if ENABLE_PROJECTORGANIZER
+SUBDIRS += projectorganizer
 endif
 
 if ENABLE_SCOPE

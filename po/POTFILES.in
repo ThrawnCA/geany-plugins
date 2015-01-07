@@ -15,6 +15,9 @@ addons/src/addons.c
 # Autoclose
 autoclose/src/autoclose.c
 
+# Automark
+automark/src/automark.c
+
 # codenav
 codenav/src/codenavigation.c
 codenav/src/goto_file.c
@@ -51,6 +54,9 @@ debugger/src/pixbuf.c
 debugger/src/pixbuf.h
 debugger/src/atree.h
 debugger/src/atree.c
+
+# defineformat
+defineformat/src/defineformat.c
 
 # devhelp
 devhelp/src/dhp.h
@@ -97,6 +103,9 @@ devhelp/devhelp/ige-conf.c
 devhelp/devhelp/ige-conf-gconf.c
 devhelp/devhelp/ige-conf.h
 devhelp/devhelp/ige-conf-private.h
+
+# geanyctags
+geanyctags/src/geanyctags.c
 
 # geanydoc
 geanydoc/tests/unittests.c
@@ -207,12 +216,6 @@ geanyvc/src/utils.c
 # GeniusPaste
 geniuspaste/src/geniuspaste.c
 
-# GProject
-gproject/src/gproject-main.c
-gproject/src/gproject-menu.c
-gproject/src/gproject-project.c
-gproject/src/gproject-sidebar.c
-
 # Markdown
 markdown/src/conf.c
 markdown/src/plugin.c
@@ -228,6 +231,12 @@ pohelper/src/gph-plugin.c
 pretty-printer/src/PrettyPrinter.c
 pretty-printer/src/PluginEntry.c
 pretty-printer/src/ConfigUI.c
+
+# ProjectOrganizer
+projectorganizer/src/prjorg-main.c
+projectorganizer/src/prjorg-menu.c
+projectorganizer/src/prjorg-project.c
+projectorganizer/src/prjorg-sidebar.c
 
 # Scope
 scope/data/scope.glade
@@ -257,6 +266,7 @@ shiftcolumn/src/shiftcolumn.c
 
 # Tableconvert
 tableconvert/src/tableconvert.c
+tableconvert/src/tableconvert_ui.c
 
 # treebrowser
 treebrowser/src/treebrowser.c

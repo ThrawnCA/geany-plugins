@@ -127,7 +127,7 @@ static void ao_tasks_set_property(GObject *object, guint prop_id,
 		case PROP_TOKENS:
 		{
 			const gchar *t = g_value_get_string(value);
-			if (! NZV(t))
+			if (EMPTY(t))
 				t = "TODO;FIXME"; /* fallback */
 			g_strfreev(priv->tokens);
 			priv->tokens = g_strsplit(t, ";", -1);
@@ -504,7 +504,7 @@ void ao_tasks_remove(AoTasks *t, GeanyDocument *cur_doc)
 	GtkTreeIter iter;
 	gchar *filename;
 
-	if (! priv->active)
+	if (! priv->active || ! priv->enable_tasks)
 		return;
 
 	if (gtk_tree_model_get_iter_first(model, &iter))
@@ -573,14 +573,14 @@ static void update_tasks_for_doc(AoTasks *t, GeanyDocument *doc)
 			token = priv->tokens;
 			while (*token != NULL)
 			{
-				if (NZV(*token) && (task_start = strstr(line_buf, *token)) != NULL)
+				if (!EMPTY(*token) && (task_start = strstr(line_buf, *token)) != NULL)
 				{
 					/* skip the token and additional whitespace */
 					task_start += strlen(*token);
 					while (*task_start == ' ' || *task_start == ':')
 						task_start++;
 					/* reset task_start in case there is no text following */
-					if (! NZV(task_start))
+					if (EMPTY(task_start))
 						task_start = line_buf;
 					/* create the task */
 					create_task(t, doc, line, *token, line_buf, task_start, display_name);
@@ -600,7 +600,7 @@ void ao_tasks_update_single(AoTasks *t, GeanyDocument *cur_doc)
 {
 	AoTasksPrivate *priv = AO_TASKS_GET_PRIVATE(t);
 
-	if (! priv->active)
+	if (! priv->active || ! priv->enable_tasks)
 		return;
 
 	if (! priv->scan_all_documents)
@@ -651,9 +651,12 @@ static gboolean ao_tasks_select_task(GtkTreeModel *model, GtkTreePath *path,
 void ao_tasks_set_active(AoTasks *t)
 {
 	AoTasksPrivate *priv = AO_TASKS_GET_PRIVATE(t);
-	priv->active = TRUE;
 
-	ao_tasks_update(t, NULL);
+	if (priv->enable_tasks)
+	{
+		priv->active = TRUE;
+		ao_tasks_update(t, NULL);
+	}
 }
 
 
@@ -661,7 +664,7 @@ void ao_tasks_update(AoTasks *t, GeanyDocument *cur_doc)
 {
 	AoTasksPrivate *priv = AO_TASKS_GET_PRIVATE(t);
 
-	if (! priv->active)
+	if (! priv->active || ! priv->enable_tasks)
 		return;
 
 	if (! priv->scan_all_documents && cur_doc == NULL)

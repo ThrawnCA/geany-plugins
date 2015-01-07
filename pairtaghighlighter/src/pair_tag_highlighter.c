@@ -14,10 +14,12 @@
 #include "Scintilla.h"  /* for the SCNotification struct */
 #include "SciLexer.h"
 
-/* If to set indicator >8, highlighting will be of grey color.
- * Light grey line highlighter covers higher values of indicator. */
-#define INDICATOR_TAGMATCH 0
+#define INDICATOR_TAGMATCH 9
 #define MAX_TAG_NAME 64
+
+#define MATCHING_PAIR_COLOR     0x00ff00    /* green */
+#define NONMATCHING_PAIR_COLOR  0xff0000    /* red */
+#define EMPTY_TAG_COLOR         0xffff00    /* yellow */
 
 /* These items are set by Geany before plugin_init() is called. */
 GeanyPlugin     *geany_plugin;
@@ -32,7 +34,7 @@ PLUGIN_VERSION_CHECK(211)
 
 PLUGIN_SET_TRANSLATABLE_INFO(LOCALEDIR, GETTEXT_PACKAGE, _("Pair Tag Highlighter"),
                             _("Finds and highlights matching opening/closing HTML tag"),
-                            "1.0", "Volodymyr Kononenko <vm@kononenko.ws>")
+                            "1.1", "Volodymyr Kononenko <vm@kononenko.ws>")
 
 
 /* Searches tag brackets.
@@ -53,13 +55,26 @@ static gint findBracket(ScintillaObject *sci, gint position, gint endOfSearchPos
         for(pos=position; pos<=endOfSearchPos; pos++)
         {
             gchar charAtCurPosition = sci_get_char_at(sci, pos);
-            if(charAtCurPosition == searchedBracket)
-            {
+            gchar charAtPrevPosition = sci_get_char_at(sci, pos-1);
+            gchar charAtNextPosition = sci_get_char_at(sci, pos+1);
+
+            if(charAtCurPosition == searchedBracket) {
+                if ('>' == searchedBracket) {
+                    if (('-' == charAtPrevPosition) || ('?' == charAtPrevPosition))
+                        continue;
+                } else if ('<' == searchedBracket) {
+                    if ('?' == charAtNextPosition)
+                        continue;
+                }
                 foundBracket = pos;
                 break;
-            }
-            if(charAtCurPosition == breakBracket)
+            } else if(charAtCurPosition == breakBracket) {
+                if ('<' == breakBracket) {
+                    if ('?' == charAtNextPosition)
+                        continue;
+                }
                 break;
+            }
         }
     }
     else
@@ -68,13 +83,27 @@ static gint findBracket(ScintillaObject *sci, gint position, gint endOfSearchPos
         for(pos=position-1; pos>=endOfSearchPos; pos--)
         {
             gchar charAtCurPosition = sci_get_char_at(sci, pos);
+            gchar charAtPrevPosition = sci_get_char_at(sci, pos+1);
+            gchar charAtNextPosition = sci_get_char_at(sci, pos-1);
+
             if(charAtCurPosition == searchedBracket)
             {
+                if ('<' == searchedBracket) {
+                    if ('?' == charAtPrevPosition)
+                        continue;
+                } else if ('>' == searchedBracket) {
+                    if (('-' == charAtNextPosition) || ('?' == charAtNextPosition))
+                        continue;
+                }
                 foundBracket = pos;
                 break;
-            }
-            if(charAtCurPosition == breakBracket)
+            } else if(charAtCurPosition == breakBracket) {
+                if ('>' == breakBracket) {
+                    if (('-' == charAtNextPosition) || ('?' == charAtNextPosition))
+                        continue;
+                }
                 break;
+            }
         }
     }
 
@@ -82,15 +111,39 @@ static gint findBracket(ScintillaObject *sci, gint position, gint endOfSearchPos
 }
 
 
-static void highlight_tag(ScintillaObject *sci, gint openingBracket, gint closingBracket)
+static gint rgb2bgr(gint color)
+{
+    guint r, g, b;
+
+    r = color >> 16;
+    g = (0x00ff00 & color) >> 8;
+    b = (0x0000ff & color);
+
+    color = (r | (g << 8) | (b << 16));
+
+    return color;
+}
+
+
+static void highlight_tag(ScintillaObject *sci, gint openingBracket,
+                          gint closingBracket, gint color)
 {
     scintilla_send_message(sci, SCI_SETINDICATORCURRENT, INDICATOR_TAGMATCH, 0);
     scintilla_send_message(sci, SCI_INDICSETSTYLE,
                             INDICATOR_TAGMATCH, INDIC_ROUNDBOX);
-    scintilla_send_message(sci, SCI_INDICSETFORE, 0, 0x00d000); /* green */
+    scintilla_send_message(sci, SCI_INDICSETFORE, INDICATOR_TAGMATCH, rgb2bgr(color));
     scintilla_send_message(sci, SCI_INDICSETALPHA, INDICATOR_TAGMATCH, 60);
     scintilla_send_message(sci, SCI_INDICATORFILLRANGE,
                             openingBracket, closingBracket-openingBracket+1);
+}
+
+
+static void highlight_matching_pair(ScintillaObject *sci)
+{
+    highlight_tag(sci, highlightedBrackets[0], highlightedBrackets[1],
+                  MATCHING_PAIR_COLOR);
+    highlight_tag(sci, highlightedBrackets[2], highlightedBrackets[3],
+                  MATCHING_PAIR_COLOR);
 }
 
 
@@ -109,6 +162,23 @@ static gboolean is_tag_self_closing(ScintillaObject *sci, gint closingBracket)
     if('/' == charBeforeBracket)
         isTagSelfClosing = TRUE;
     return isTagSelfClosing;
+}
+
+
+static gboolean is_tag_empty(gchar *tagName)
+{
+    const char *emptyTags[] = {"area", "base", "br", "col", "embed",
+                         "hr", "img", "input", "keygen", "link", "meta",
+                         "param", "source", "track", "wbr", "!DOCTYPE"};
+
+    unsigned int i;
+    for(i=0; i<(sizeof(emptyTags)/sizeof(emptyTags[0])); i++)
+    {
+        if(strcmp(tagName, emptyTags[i]) == 0)
+            return TRUE;
+    }
+
+    return FALSE;
 }
 
 
@@ -184,12 +254,14 @@ static void findMatchingOpeningTag(ScintillaObject *sci, gchar *tagName, gint op
         if(openingTagsCount == closingTagsCount)
         {
             /* matching tag is found */
-            highlight_tag(sci, matchingOpeningBracket, matchingClosingBracket);
             highlightedBrackets[2] = matchingOpeningBracket;
             highlightedBrackets[3] = matchingClosingBracket;
-            break;
+            highlight_matching_pair(sci);
+            return;
         }
     }
+    highlight_tag(sci, highlightedBrackets[0], highlightedBrackets[1],
+                  NONMATCHING_PAIR_COLOR);
 }
 
 
@@ -206,8 +278,8 @@ static void findMatchingClosingTag(ScintillaObject *sci, gchar *tagName, gint cl
         /* are we inside tag? */
         gint lineNumber = sci_get_line_from_position(sci, pos);
         gint lineEnd = sci_get_line_end_position(sci, lineNumber);
-        gint matchingOpeningBracket = findBracket(sci, pos, endOfDocument, '<', '\0', TRUE);
-        gint matchingClosingBracket = findBracket(sci, pos, endOfDocument, '>', '\0', TRUE);
+        gint matchingOpeningBracket = findBracket(sci, pos, lineEnd, '<', '\0', TRUE);
+        gint matchingClosingBracket = findBracket(sci, pos, lineEnd, '>', '\0', TRUE);
 
         if(-1 != matchingOpeningBracket && -1 != matchingClosingBracket
             && (matchingClosingBracket > matchingOpeningBracket))
@@ -226,23 +298,18 @@ static void findMatchingClosingTag(ScintillaObject *sci, gchar *tagName, gint cl
             }
             pos = matchingClosingBracket;
         }
-        /* Speed up search: if findBracket returns -1, that means end of line
-         * is reached. There is no need to go through the same positions again.
-         * Jump to the end of line */
-        else if(-1 == matchingOpeningBracket || -1 == matchingClosingBracket)
-        {
-            pos = lineEnd;
-            continue;
-        }
+
         if(openingTagsCount == closingTagsCount)
         {
             /* matching tag is found */
-            highlight_tag(sci, matchingOpeningBracket, matchingClosingBracket);
             highlightedBrackets[2] = matchingOpeningBracket;
             highlightedBrackets[3] = matchingClosingBracket;
-            break;
+            highlight_matching_pair(sci);
+            return;
         }
     }
+    highlight_tag(sci, highlightedBrackets[0], highlightedBrackets[1],
+                  NONMATCHING_PAIR_COLOR);
 }
 
 
@@ -250,12 +317,17 @@ static void findMatchingTag(ScintillaObject *sci, gint openingBracket, gint clos
 {
     gchar tagName[MAX_TAG_NAME];
     gboolean isTagOpening = is_tag_opening(sci, openingBracket);
+
     get_tag_name(sci, openingBracket, closingBracket, tagName, isTagOpening);
 
-    if(TRUE == isTagOpening)
-        findMatchingClosingTag(sci, tagName, closingBracket);
-    else
-        findMatchingOpeningTag(sci, tagName, openingBracket);
+    if(is_tag_self_closing(sci, closingBracket) || is_tag_empty(tagName)) {
+        highlight_tag(sci, openingBracket, closingBracket, EMPTY_TAG_COLOR);
+    } else {
+        if(isTagOpening)
+            findMatchingClosingTag(sci, tagName, closingBracket);
+        else
+            findMatchingOpeningTag(sci, tagName, openingBracket);
+    }
 }
 
 
@@ -287,16 +359,13 @@ static void run_tag_highlighter(ScintillaObject *sci)
         clear_previous_highlighting(sci, highlightedBrackets[2], highlightedBrackets[3]);
     }
 
-    highlightedBrackets[0] = openingBracket;
-    highlightedBrackets[1] = closingBracket;
+    /* Don't run search on empty brackets <> */
+    if (closingBracket - openingBracket > 1) {
+        highlightedBrackets[0] = openingBracket;
+        highlightedBrackets[1] = closingBracket;
 
-    /* Highlight current tag. Matching tag will be highlighted from
-     * findMatchingTag() functiong */
-    highlight_tag(sci, openingBracket, closingBracket);
-
-    /* Find matching tag only if a tag is not self-closing */
-    if(FALSE == is_tag_self_closing(sci, closingBracket))
         findMatchingTag(sci, openingBracket, closingBracket);
+    }
 }
 
 
@@ -307,7 +376,7 @@ static gboolean on_editor_notify(GObject *obj, GeanyEditor *editor,
     gint lexer;
 
     lexer = sci_get_lexer(editor->sci);
-    if(lexer != SCLEX_HTML)
+    if((lexer != SCLEX_HTML) && (lexer != SCLEX_XML))
     {
         return FALSE;
     }

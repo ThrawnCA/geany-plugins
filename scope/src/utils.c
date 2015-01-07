@@ -260,7 +260,8 @@ void utils_seek(const char *file, gint line, gboolean focus, SeekerType seeker)
 			if (seeker == SK_EXEC_MARK)
 				sci_set_marker_at_line(sci, line - 1, MARKER_EXECUTE);
 		}
-		else if ((doc = document_open_file(file, FALSE, NULL, NULL)) != NULL)
+		else if (g_file_test(file, G_FILE_TEST_EXISTS) &&
+			(doc = document_open_file(file, FALSE, NULL, NULL)) != NULL)
 		{
 			sci = doc->editor->sci;
 			if (seeker == SK_EXECUTE || seeker == SK_EXEC_MARK)
@@ -343,11 +344,22 @@ static void line_mark_unmark(GeanyDocument *doc, gboolean lock)
 	}
 }
 
+static GtkCheckMenuItem *set_file_readonly1;
+
 static void doc_lock_unlock(GeanyDocument *doc, gboolean lock)
 {
-	scintilla_send_message(doc->editor->sci, SCI_SETREADONLY, lock, 0);
-	doc->readonly = lock;
-	document_set_text_changed(doc, doc->changed);  /* to redraw tab and update sidebar */
+	if (set_file_readonly1 && doc == document_get_current())
+	{
+		/* to ensure correct state of Document -> [ ] Read Only */
+		if (gtk_check_menu_item_get_active(set_file_readonly1) != lock)
+			gtk_check_menu_item_set_active(set_file_readonly1, lock);
+	}
+	else
+	{
+		scintilla_send_message(doc->editor->sci, SCI_SETREADONLY, lock, 0);
+		doc->readonly = lock;
+		document_set_text_changed(doc, doc->changed);  /* to redraw tab & update sidebar */
+	}
 }
 
 void utils_lock(GeanyDocument *doc)
@@ -705,6 +717,12 @@ void utils_tree_set_cursor(GtkTreeSelection *selection, GtkTreeIter *iter, gdoub
 
 	gtk_tree_view_set_cursor(tree, path, NULL, FALSE);
 	gtk_tree_path_free(path);
+}
+
+void utils_init(void)
+{
+	set_file_readonly1 = GTK_CHECK_MENU_ITEM(ui_lookup_widget(geany->main_widgets->window,
+		"set_file_readonly1"));
 }
 
 void utils_finalize(void)

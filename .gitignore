@@ -13,6 +13,8 @@ deps.mak
 .libs/
 Makefile
 Makefile.in
+cscope.out
+cscope.files
 
 #-----------------------------------------------------------------------
 # / (root)
@@ -53,7 +55,8 @@ Makefile.in
 /*.tar.*
 /TODO.*
 /.waf-*
-.lock-wafbuild
+/.waf3-*
+.lock-waf*
 
 #-----------------------------------------------------------------------
 # /po/

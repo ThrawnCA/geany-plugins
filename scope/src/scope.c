@@ -32,7 +32,7 @@ GeanyFunctions *geany_functions;
 PLUGIN_VERSION_CHECK(215)
 
 PLUGIN_SET_TRANSLATABLE_INFO(LOCALEDIR, GETTEXT_PACKAGE, _("Scope Debugger"),
-	_("Relatively simple GDB front-end."), "0.93",
+	_("Relatively simple GDB front-end."), "0.93.2",
 	"Dimitar Toshkov Zhekov <dimitar.zhekov@gmail.com>")
 
 /* Keybinding(s) */
@@ -214,8 +214,6 @@ static GtkStatusbar *geany_statusbar;
 static GtkWidget *debug_statusbar;
 static GtkLabel *debug_state_label;
 
-static DebugState last_statusbar_state;
- 
 void statusbar_update_state(DebugState state)
 {
 	static DebugState last_state = DS_INACTIVE;
@@ -326,7 +324,7 @@ static gboolean settings_saved(gpointer gdata)
 			SCI_GETREADONLY, 0, 0);
 	}
 
-	if (GPOINTER_TO_INT(gdata))
+	if (gdata)
 	{
 		conterm_load_config();
 		conterm_apply_config();
@@ -535,7 +533,7 @@ void plugin_init(G_GNUC_UNUSED GeanyData *gdata)
 	GeanyKeyGroup *scope_key_group;
 	char *gladefile = g_build_filename(PLUGINDATADIR, "scope.glade", NULL);
 	GError *gerror = NULL;
-	GtkWidget *menubar1 = find_widget(geany->main_widgets->window, "menubar1");
+	GtkWidget *menubar1 = ui_lookup_widget(geany->main_widgets->window, "menubar1");
 	guint item;
 	const MenuKey *menu_key = debug_menu_keys;
 	ToolItem *tool_item = toolbar_items;
@@ -550,6 +548,7 @@ void plugin_init(G_GNUC_UNUSED GeanyData *gdata)
 	if (!gtk_builder_add_from_file(builder, gladefile, &gerror))
 	{
 		msgwin_status_add(_("Scope: %s."), gerror->message);
+		g_warning(_("Scope: %s."), gerror->message);
 		g_error_free(gerror);
 		g_object_unref(builder);
 		builder = NULL;
@@ -565,7 +564,13 @@ void plugin_init(G_GNUC_UNUSED GeanyData *gdata)
 #endif
 	debug_item = get_widget("debug_item");
 	if (menubar1)
-		gtk_menu_shell_insert(GTK_MENU_SHELL(menubar1), debug_item, DEBUG_MENU_ITEM_POS);
+	{
+		GList *children = gtk_container_get_children(GTK_CONTAINER(menubar1));
+		GtkWidget *menu_build1 = ui_lookup_widget(menubar1, "menu_build1");
+
+		gtk_menu_shell_insert(GTK_MENU_SHELL(menubar1), debug_item,
+			menu_build1 ? g_list_index(children, menu_build1) + 1 : DEBUG_MENU_ITEM_POS);
+	}
 	else
 		gtk_container_add(GTK_CONTAINER(geany->main_widgets->tools_menu), debug_item);
 
@@ -596,6 +601,7 @@ void plugin_init(G_GNUC_UNUSED GeanyData *gdata)
 	inspect_init();
 	register_init();
 	parse_init();
+	utils_init();
 	debug_init();
 	views_init();
 	thread_init();
